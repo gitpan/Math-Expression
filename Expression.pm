@@ -8,7 +8,7 @@
 #        .
 #          .
 #
-#	SCCS: @(#)Expression.pm	1.12 03/25/03 14:50:39
+#	SCCS: @(#)Expression.pm 1.14 03/26/03 21:49:29
 #
 # This module is free software; you can redistribute it and/or modify
 # it under the same terms as Perl itself. You must preserve this entire copyright
@@ -49,7 +49,7 @@ use vars qw/
 	$Version
 );
 
-our $VERSION = "1.12";
+our $VERSION = "1.14";
 
 # Operator precedence, higher means evaluate first.
 # If precedence values are the same associate to the left.
@@ -397,16 +397,19 @@ sub EvalTree {
 	my @left = &EvalTree($self, $tree->{left}, $wantlv);
 	my $left = $left[$#left];
 	if(!defined($left) and $oper ne ',' and $oper ne '.') {
-		$self->{PrintErrFunc}("Left value to operator '%s' is not defined", $oper);
-		return;
+		unless($self->{AutoInit}) {
+			$self->{PrintErrFunc}("Left value to operator '%s' is not defined", $oper);
+			return;
+		}
+		$left = '';	# Set to the empty string
 	}
 
 	# Lazy evaluation:
 	return $left ?  &EvalTree($self, $tree->{right}{left}, $wantlv) :
-			&EvalTree($self, $tree->{right}{right}, $wantlv)				if($oper eq '?');
+			&EvalTree($self, $tree->{right}{right}, $wantlv)		if($oper eq '?');
 
 	# Constructing a list of variable names (for assignment):
-	return (@left, &EvalTree($self, $tree->{right}, 1))	if($oper eq ',' and $wantlv);
+	return (@left, &EvalTree($self, $tree->{right}, 1))				if($oper eq ',' and $wantlv);
 
 	# More lazy evaluation:
 	if($oper eq '&&' or $oper eq '||') {
@@ -436,8 +439,11 @@ sub EvalTree {
 	}
 
 	unless(defined($right)) {
-		$self->{PrintErrFunc}("Right value to operator '%s' is not defined", $oper);
-		return;
+		unless($self->{AutoInit}) {
+			$self->{PrintErrFunc}("Right value to operator '%s' is not defined", $oper);
+			return;
+		}
+		$right = '';
 	}
 
 	return $left lt $right ? 1 : 0 if($oper eq 'lt');
@@ -454,13 +460,19 @@ sub EvalTree {
 	# Returning undef may result in a cascade of errors.
 	# Perl would treat 012 as an octal number, that would confuse most people, convert to a decimal interpretation.
 	unless($left =~ /^(-?)0*([\d.]+)/) {
-		$self->{PrintErrFunc}("Left hand operator to '%s' is not numeric '%s'", $oper, $left);
-		return;
+		unless($self->{AutoInit} and $left eq '') {
+			$self->{PrintErrFunc}("Left hand operator to '%s' is not numeric '%s'", $oper, $left);
+			return;
+		}
+		$left = 0;
 	}
 	$left = "$1$2";
 	unless($right =~ /^(-?)0*([\d.]+)/) {
-		$self->{PrintErrFunc}("Right hand operator to '%s' is not numeric '%s'", $oper, $right);
-		return;
+		unless($self->{AutoInit} and $right eq '') {
+			$self->{PrintErrFunc}("Right hand operator to '%s' is not numeric '%s'", $oper, $right);
+			return;
+		}
+		$right = 0;
 	}
 	$right = "$1$2";
 
@@ -531,6 +543,7 @@ sub new {
 		'VarSetFun'	=>	\&VarSetFun,		# Set an array variable function
 		'VarSetScalar'	=>	\&VarSetScalar,		# Set a scalar variable function
 		'FuncEval'	=>	\&FuncValue,		# Evaluate function
+		'AutoInit'	=>	0,			# If true auto initialise variables
 	);
 
 	return bless \%ExprVars => $class;
@@ -654,6 +667,12 @@ The arguments are: 0 - the value returned by C<new>; 1 - the name of the functio
 to be evaluated; 2... - an array of function arguments.
 This should return the value of the function: scalar or array.
 
+=item AutoInit
+
+If true automatically initialise undefined values, to the empty string or '0' depending on use.
+The default is that undefined values cause an error, except that concatentation (C<.>)
+always results in the empty string being assumed.
+
 Example:
 
   my %Vars = (
@@ -664,6 +683,7 @@ Example:
 	'VarGetFun' => \&VarValue,
 	'VarIsDefFun' => \&VarIsDef,
 	'PrintErrFunc' => \&MyPrintError,
+	'AutoInit' => 1,
 	);
 
 =back
@@ -858,7 +878,7 @@ Alain D D Williams <addw@phcomp.co.uk>
 
 =head2 Copyright and Version
 
-Version "1.12", this is available as: $Math::Expression::Version.
+Version "1.14", this is available as: $Math::Expression::Version.
 
 Copyright (c) 2003 Parliament Hill Computers Ltd/Alain D D Williams. All rights reserved.
 This program is free software; you can redistribute it and/or modify it

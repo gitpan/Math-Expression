@@ -80,3 +80,17 @@ Expression.pm: If an operand to '.' is undef, treat as empty.
 
 addw: Tue 25 Mar 2003 14:50
 Expression.pm: Dummy change just to bumb the version number - packaging didn't quite work right.
+
+addw: Tue 25 Mar 2003 14:56
+BuildDistribution.sh:	Initial Create.
+
+addw: Wed 26 Mar 2003 21:43
+Expression.pm: Add auto init feature/option
+
+addw: Wed 26 Mar 2003 21:49
+Expression.pm: Document the last change - AutoInit
+
+addw: Thu 27 Mar 2003 10:42
+MANIFEST: Add a few more files
+README.in: Add copyright release.
+TODO: Add copyright release.

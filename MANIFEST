@@ -1,7 +1,10 @@
+BuildDistribution.sh
 Changes
+Credits
 Expression.pm
 Makefile.PL
 MANIFEST
 README
+README.in
 test.pl
 TODO
