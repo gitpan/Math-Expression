@@ -8,7 +8,7 @@
 #        .
 #          .
 #
-#	SCCS: @(#)Expression.pm	1.11 03/25/03 14:24:29
+#	SCCS: @(#)Expression.pm	1.12 03/25/03 14:50:39
 #
 # This module is free software; you can redistribute it and/or modify
 # it under the same terms as Perl itself. You must preserve this entire copyright
@@ -49,7 +49,7 @@ use vars qw/
 	$Version
 );
 
-our $VERSION = "1.11";
+our $VERSION = "1.12";
 
 # Operator precedence, higher means evaluate first.
 # If precedence values are the same associate to the left.
@@ -858,7 +858,7 @@ Alain D D Williams <addw@phcomp.co.uk>
 
 =head2 Copyright and Version
 
-Version "1.11", this is available as: $Math::Expression::Version.
+Version "1.12", this is available as: $Math::Expression::Version.
 
 Copyright (c) 2003 Parliament Hill Computers Ltd/Alain D D Williams. All rights reserved.
 This program is free software; you can redistribute it and/or modify it

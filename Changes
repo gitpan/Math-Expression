@@ -77,3 +77,6 @@ test.pl: Changed $Version to $VERSION
 
 addw: Tue 25 Mar 2003 14:24
 Expression.pm: If an operand to '.' is undef, treat as empty.
+
+addw: Tue 25 Mar 2003 14:50
+Expression.pm: Dummy change just to bumb the version number - packaging didn't quite work right.

@@ -1,4 +1,4 @@
-Math::Expression version 1.11
+Math::Expression version 1.12
 =============================
 
 This module solves the problem of evaluating expressions read from config/...
