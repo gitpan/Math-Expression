@@ -1,0 +1,79 @@
+
+addw: Thu 30 Jan 2003 17:22
+Expression.pm:	Initial Create.
+
+addw: Thu 30 Jan 2003 17:22
+TestExpr.pl:	Initial Create.
+
+addw: Sat 01 Feb 2003 10:42
+Expression.pm: Ensure that 012 is interpretted as a decimal and not octal number.
+TestExpr.pl: Ensure that 012 is interpretted as a decimal and not octal number.
+
+addw: Mon 03 Feb 2003 12:59
+Expression.pm: Add a defined() function, allow '_' in var names, fix bug introduced last time on truncating floats
+
+addw: Mon 03 Feb 2003 13:00
+TestExpr.pl: Add defined() test, '_' in var names & do the syntax error checks.
+
+addw: Tue 04 Feb 2003 23:22
+Expression.pm: Forgot to put the mandatory '1;' at the end of the module.
+
+addw: Fri 07 Feb 2003 13:39
+Expression.pm: Recognise forgotten != operator, change ordering to recognise things like != anyway.
+
+addw: Fri 07 Feb 2003 13:42
+TestExpr.pl: Perform tests on some operators that had been forgotten, print count of tests performed.
+
+addw: Fri 07 Feb 2003 14:00
+Expression.pm: Make logical AND and OR consistent with perl: && and ||, not & and |.
+TestExpr.pl: Make logical AND and OR consistent with perl: && and ||, not & and |.
+
+addw: Mon 24 Feb 2003 13:23
+TestExpr.pl: Test aindex function
+Expression.pm: New function: aindex
+
+addw: Wed 26 Feb 2003 16:08
+Expression.pm: Fix consistency error if VarSetFun were reset
+
+addw: Fri 28 Feb 2003 14:21
+TestExpr.pl: Improve tests
+
+addw: Mon 24 Mar 2003 17:04
+Expression.pm: Add POD
+
+addw: Tue 25 Mar 2003 13:21
+Makefile.PL:	Initial Create.
+
+addw: Tue 25 Mar 2003 13:21
+README:	Initial Create.
+
+addw: Tue 25 Mar 2003 13:22
+MANIFEST:	Initial Create.
+
+addw: Tue 25 Mar 2003 13:22
+Expression.pm: Update documentation
+
+addw: Tue 25 Mar 2003 13:23
+TestExpr.pl: Add copyright & print version number.
+Renamed as test.pl
+
+
+addw: Tue 25 Mar 2003 13:24
+test.pl: Note change of name;
+
+addw: Tue 25 Mar 2003 13:47
+README: Allow for different version numbers between README and the module itself.
+Rename as README.in.
+
+
+addw: Tue 25 Mar 2003 13:56
+MANIFEST: Add TODO
+
+addw: Tue 25 Mar 2003 14:10
+TODO:	Initial Create.
+
+addw: Tue 25 Mar 2003 14:16
+test.pl: Changed $Version to $VERSION
+
+addw: Tue 25 Mar 2003 14:24
+Expression.pm: If an operand to '.' is undef, treat as empty.
