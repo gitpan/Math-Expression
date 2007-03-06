@@ -112,3 +112,6 @@ Credits:	Initial Create.
 Credits: Add Alexandr Ciornii as a tester
 Makefile.PL: Add LICENSE
 Expression.pm: Be parsimonious on the use of POSIX.
+
+addw: Tue 06 Mar 2007 08:34
+Expression.pm: Just to increment version #
