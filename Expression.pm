@@ -8,7 +8,7 @@
 #        .
 #          .
 #
-#	SCCS: @(#)Expression.pm 1.14 03/26/03 21:49:29
+#	SCCS: @(#)Expression.pm	1.16 03/05/07 14:44:21
 #
 # This module is free software; you can redistribute it and/or modify
 # it under the same terms as Perl itself. You must preserve this entire copyright
@@ -26,7 +26,7 @@ use strict;
 package Math::Expression;
 
 use Exporter;
-use POSIX;
+use POSIX qw(strftime mktime);
 
 # What local variables - visible elsewhere
 use vars qw/
@@ -49,19 +49,24 @@ use vars qw/
 	$Version
 );
 
-our $VERSION = "1.14";
+our $VERSION = "1.16";
 
 # Operator precedence, higher means evaluate first.
 # If precedence values are the same associate to the left.
 # 2 values, depending on if it is the TopOfStack or JustRead operator - [TOS, JR]. See ':=' which right associates.
 # Just binary operators makes life easier as well.
-my $HighestOperPrec = 14;
-my $PrecTerminal = 15;		# Precedence of terminal (or list) - ie operand
+my $HighestOperPrec = 17;
+my $PrecTerminal = 18;		# Precedence of terminal (or list) - ie operand
 my %OperPrec = (
-	'('	=>	[16, 16],
-	'var'	=>	[15, 15],
-	'const'	=>	[15, 15],
-	'func'	=>	[15, 15],
+	'('	=>	[19, 19],
+	'var'	=>	[18, 18],
+	'const'	=>	[18, 18],
+	'func'	=>	[18, 18],
+	'M-'	=>	[16, 17],	# Monadic -
+	'M+'	=>	[16, 17],	# Monadic +
+	'M!'	=>	[16, 17],
+	'M~'	=>	[16, 17],
+	'**'	=>	[15, 15],
 	'*'	=>	[14, 14],
 	'/'	=>	[14, 14],
 	'%'	=>	[14, 14],
@@ -89,6 +94,14 @@ my %OperPrec = (
 	':='	=>	[4, 5],
 	')'	=>	[3, 3],
 #	';'	=>	[0, 0],
+);
+
+# Monadic/Unary operators:
+my %MonOp = (
+	'-'	=>	16,
+	'+'	=>	16,
+	'!'	=>	16,
+	'~'	=>	16,
 );
 
 # Default error output function
@@ -159,6 +172,8 @@ sub ParseString {
 	my @operands;			# Parsed tree ends up here
 	my $nodep;
 
+	my $operlast = 1;		# Start with a virtual '(', rework if we have postfix operators
+
 	while(1) {
 		$nodep = {()};
 
@@ -168,16 +183,26 @@ sub ParseString {
 		my $VirtKet = $expr eq '';
 
 		# Match integer/float constant:
-		if($expr =~ s/^(\d+\.?\d*)//) {
+		if($expr =~ s/^(\d+\.?\d*([ed][-+]?\d+)?)//i) {
 			$nodep->{oper} = 'const';
 			$nodep->{val} = $1;
+			$operlast = 0;
 		} # Match string bounded by ' or "
 		elsif($expr =~ /^(['"])/ and $expr =~ s/^$1([^$1]*)$1//) {
 			$nodep->{oper} = 'const';
 			$nodep->{val} = $1;
+			$operlast = 0;
 		} # Match (operators)
-		elsif($expr =~ s@^(:=|>=|<=|==|<>|!=|&&|\|\||lt|gt|le|ge|eq|ne|[-./*%+,<>\?:\(\);])@@) {
+		elsif($expr =~ s@^(:=|>=|<=|==|<>|!=|&&|\|\||lt|gt|le|ge|eq|ne|\*\*|[-~!./*%+,<>\?:\(\);])@@) {
 			$nodep->{oper} = $1;
+			# Monadic if the previous token was an operator and this one can be mondic:
+			if($operlast && defined($MonOp{$1})) {
+				$nodep->{oper} = 'M' . $1;
+				$nodep->{monop} = $1;		# Monop flag & for error reporting
+			}
+
+			$operlast = 1 unless($1 eq ')');
+
 		} # End of input string:
 		elsif($VirtKet) {
 			$nodep->{oper} = ')';
@@ -189,6 +214,7 @@ sub ParseString {
 		elsif($expr =~ s/^\$\{([^\s{}]+)\}|^\$(\d+|[_a-zA-Z]\w*|[^\s])|^([_a-zA-Z]\w*)//) {
 			$nodep->{oper} = 'var';
 			$nodep->{name} = defined($1) ? $1 : defined($2) ? $2 : $3;
+			$operlast = 0;
 		} else {
 			$self->{PrintErrFunc}("Unrecognised input in expression at '%s'", $expr);
 			return;
@@ -247,7 +273,9 @@ sub ParseString {
 				my $top = pop @operators;
 				my $func = $top->{oper} eq 'func';
 
-				unless($#operands >= ($func ? 0 : 1)) {
+				my $monop = defined($top->{monop});
+
+				unless($#operands >= (($func | $monop) ? 0 : 1)) {
 					$self->{PrintErrFunc}("Missing operand to operator '%s' at %s", $top->{oper},
 						($expr ne '' ? "'$expr'" : 'end'));
 					return;
@@ -255,7 +283,8 @@ sub ParseString {
 
 				# With 2 operands we can treat as an operand:
 				$top->{right} = pop @operands;
-				$top->{left}  = pop @operands unless($func);
+				$top->{left}  = pop @operands unless($func or $monop);
+
 				push @operands, $top;
 			}
 		}
@@ -266,7 +295,15 @@ sub ParseString {
 # 0	Self
 # 1	a tree, return that tree, return undef on error.
 # Report errors with $ErrFunc.
+# To prevent a cascade of errors all due to one fault, use $ChkErrs to only print the first one.
+my $ChkErrs;
 sub CheckTree {
+	$ChkErrs = 0;
+	return &CheckTreeInt(@_);
+}
+
+# Internal CheckTree
+sub CheckTreeInt {
 	my ($self, $tree) = @_;
 	return unless(defined($tree));
 
@@ -275,15 +312,22 @@ sub CheckTree {
 	my $ok = 1;
 
 	if($tree->{oper} eq '?' and $tree->{right}{oper} ne ':') {
-		$self->{PrintErrFunc}("Missing ':' operator after '?' operator");
+		$self->{PrintErrFunc}("Missing ':' operator after '?' operator") unless($ChkErrs);
 		$ok = 0;
 	}
 
 	if($tree->{oper} ne 'func') {
-		$ok = 0 unless(&CheckTree($self, $tree->{left}));
+		unless((!defined($tree->{left}) and defined($tree->{monop})) or &CheckTree($self, $tree->{left})) {
+			$self->{PrintErrFunc}("Missing LH expression to '%s'", defined($tree->{monop}) ? $tree->{monop} : $tree->{oper}) unless($ChkErrs);
+			$ok = 0;
+		}
 	}
-	$ok = 0 unless(&CheckTree($self, $tree->{right}));
+	unless(&CheckTree($self, $tree->{right})) {
+		$self->{PrintErrFunc}("Missing RH expression to '%s'", defined($tree->{monop}) ? $tree->{monop} : $tree->{oper}) unless($ChkErrs);
+		$ok = 0;
+	}
 
+	$ChkErrs = 1 unless($ok);
 	return $ok ? $tree : undef;
 }
 
@@ -373,6 +417,33 @@ sub EvalTree {
 	return $self->{FuncEval}($self, $tree->{fname},
 				&EvalTree($self, $tree->{right}, $tree->{fname} eq 'defined'))		if($oper eq 'func');
 
+	# Monadic operators:
+	if(!defined($tree->{left}) and defined($tree->{monop})) {
+		$oper = $tree->{monop};
+
+		# Evaluate the (RH) operand
+		my @right = &EvalTree($self, $tree->{right}, 0);
+		my $right = $right[$#right];
+		unless(defined($right)) {
+			unless($self->{AutoInit}) {
+				$self->{PrintErrFunc}("Operand to mondaic operator '%s' is not defined", $oper);
+				return;
+			}
+			$right = 0;	# Monadics are all numeric
+		}
+
+		unless($right =~ /^([-+]?)0*([\d.]+)([ef][-+]?\d*|)/i) {
+			$self->{PrintErrFunc}("Operand to monadic '%s' is not numeric '%s'", $oper, $right);
+			return;
+		}
+		$right = "$1$2$3";
+
+		return -$right if($oper eq '-');
+		return  $right if($oper eq '+');
+		return !$right if($oper eq '!');
+		return ~$right if($oper eq '~');
+	}
+
 	# This is complicated by multiple assignment: (a, b, c) := (1, 2, 3, 4). 'c' is given '(3, 4)'.
 	if($oper eq ':=') {
 		my @left = &EvalTree($self, $tree->{left}, 1);
@@ -459,28 +530,30 @@ sub EvalTree {
 	# Everthing else is an arithmetic operator, check for left & right being numeric. NB: '-' 'cos may be -ve.
 	# Returning undef may result in a cascade of errors.
 	# Perl would treat 012 as an octal number, that would confuse most people, convert to a decimal interpretation.
-	unless($left =~ /^(-?)0*([\d.]+)/) {
+	unless($left =~ /^([-+]?)0*([\d.]+)([ef][-+]?\d*|)/i) {
 		unless($self->{AutoInit} and $left eq '') {
 			$self->{PrintErrFunc}("Left hand operator to '%s' is not numeric '%s'", $oper, $left);
 			return;
 		}
 		$left = 0;
 	}
-	$left = "$1$2";
-	unless($right =~ /^(-?)0*([\d.]+)/) {
+	$left = "$1$2$3";
+
+	unless($right =~ /^([-+]?)0*([\d.]+)([ef][-+]?\d*|)/i) {
 		unless($self->{AutoInit} and $right eq '') {
 			$self->{PrintErrFunc}("Right hand operator to '%s' is not numeric '%s'", $oper, $right);
 			return;
 		}
 		$right = 0;
 	}
-	$right = "$1$2";
+	$right = "$1$2$3";
 
 	return $left *  $right if($oper eq '*');
 	return $left /  $right if($oper eq '/');
 	return $left %  $right if($oper eq '%');
 	return $left +  $right if($oper eq '+');
 	return $left -  $right if($oper eq '-');
+	return $left ** $right if($oper eq '**');
 
 	# Force return of true/false -- NOT undef
 	return $left >  $right ? 1 : 0 if($oper eq '>');
@@ -499,6 +572,7 @@ sub FuncValue {
 	my $last = $arglist[$#arglist];
 
 	return int($last)					if($fname eq 'int');
+	return abs($last)					if($fname eq 'abs');
 	return int($last + 0.5)					if($fname eq 'round');
 
 	return split $arglist[0], $arglist[$#arglist]		if($fname eq 'split');
@@ -750,6 +824,10 @@ The POSIX package is used to provide some of the functions.
 
 Returns the integer part of an expression.
 
+=item abs
+
+Returns the absolute value of an expression.
+
 =item round
 
 Adds 0.5 to input and returns the integer part.
@@ -821,6 +899,7 @@ Precedence may be overridden with parenthesis.
 Unary C<+> and  C<-> do not exist.
 <> is the same as C<!=>.
 
+	+ - ~ !	(Monadic)
 	* / %
 	+ -
 	.	String concatenation
@@ -878,7 +957,7 @@ Alain D D Williams <addw@phcomp.co.uk>
 
 =head2 Copyright and Version
 
-Version "1.14", this is available as: $Math::Expression::Version.
+Version "1.16", this is available as: $Math::Expression::Version.
 
 Copyright (c) 2003 Parliament Hill Computers Ltd/Alain D D Williams. All rights reserved.
 This program is free software; you can redistribute it and/or modify it

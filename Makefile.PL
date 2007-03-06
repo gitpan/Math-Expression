@@ -7,7 +7,7 @@
 #        .
 #          .
 #
-#	SCCS: @(#)Makefile.PL	1.1 03/25/03 13:21:07
+#	SCCS: @(#)Makefile.PL	1.2 03/05/07 14:43:51
 #
 
 use ExtUtils::MakeMaker;
@@ -19,4 +19,6 @@ WriteMakefile(
     ($] >= 5.005 ?    ## Add these new keywords supported since 5.005
       (ABSTRACT_FROM => 'Expression.pm', # retrieve abstract from module
        AUTHOR     => 'Alain D D Williams <addw@phcomp.co.uk>') : ()),
+    ($ExtUtils::MakeMaker::VERSION ge '6.30_00'?
+      ('LICENSE'	=> 'perl', ) : ()),
 );

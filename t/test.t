@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w -I ..
+#!/usr/bin/perl -w
 #      /\
 #     /  \		(C) Copyright 2003 Parliament Hill Computers Ltd.
 #     \  /		All rights reserved.
@@ -8,13 +8,23 @@
 #        .
 #          .
 #
-#	SCCS: @(#)test.pl	1.10 03/25/03 14:16:15
+#	SCCS: @(#)test.t	1.13 03/05/07 14:38:58
 #
 # Test program for the module Math::Expression.
 # This also serves as a demonstration program on how to use the module.
 #
 # May want to run as:
-#	PERL5LIB=.. ./test.pl
+#	PERL5LIB=.. -Iblib/lib t/test.t
+
+# You can also set environment variables:
+#  TRACE	1	print out expression and result
+#		2	also print out the parse tree
+# eg:
+#	TRACE=1 perl -Iblib/lib t/test.t
+
+#  ERR_TREE	1	Print out the parse tree on error
+# eg:
+#	ERR_TREE=1 perl -Iblib/lib t/test.t
 
 # Copyright (c) 2003 Parliament Hill Computers Ltd/Alain D D Williams. All rights reserved.
 # This module is free software; you can redistribute it and/or modify
@@ -30,7 +40,8 @@
 
 use strict;
 use Math::Expression;
-use POSIX;
+use POSIX qw(strftime mktime);
+
 
 
 # Values of variables in here
@@ -65,6 +76,7 @@ sub VarIsDef {
 my $NumFails = 0;
 my $ExprError;
 my $RunError;
+my $errtree = 0;
 my $verbose = 0;
 my $var=0;
 my @arr = (1,2,3);
@@ -73,7 +85,7 @@ my $OriginalExpression;
 my $Operation;
 
 sub MyPrintError {
-	printf "Error in $Operation '%s': ", $OriginalExpression;
+	printf "#Error in $Operation '%s': ", $OriginalExpression;
 	printf @_;
 	print "\n";
 
@@ -85,7 +97,7 @@ sub MyPrintError {
 }
 
 sub printv {
-	return unless($verbose);
+	return unless($verbose > 1);
 
 	if($#_ > 0) {
 		my $fmt = shift @_;
@@ -97,7 +109,11 @@ sub printv {
 
 # **** Start here ****
 
-printf "Math::Expression Version '%s'\n", $Math::Expression::VERSION;
+# Debug/trace options from the environment:
+$verbose = $ENV{TRACE}    if(exists($ENV{TRACE}));
+$errtree = $ENV{ERR_TREE} if(exists($ENV{ERR_TREE}));
+
+printf "Math::Expression Version '%s'\n", $Math::Expression::VERSION if($verbose);
 
 my $ArithEnv = new Math::Expression;
 
@@ -111,9 +127,6 @@ $ArithEnv->SetOpt('VarHash' => \%Vars,
 my $Now = time;
 
 my @Test = (
-#	'TRACE'					=>	1,		# Switch trace on
-	'TRACE'					=>	0,
-
 	'123'					=>	'123',
 	'1.23'					=>	'1.23',
 	'"string"'				=>	'string',
@@ -135,8 +148,39 @@ my @Test = (
 	'2 * (3 + 4) * 5'			=>	'70',
 	'2 * (3 + 4) * 5 * (1 + 2) . "bar"'	=>	'210bar',
 	'(15 / 3)'				=>	'5',
+
+	'2 ** 3'				=>	'8',
+	'2 ** (3 + 1)'				=>	'16',
+	'2 ** 3 + 1'				=>	'9',
+	'2 ** (0-3)'				=>	'0.125',
+
+	# You might expect the following to produce syntax errors, but they aren't (monadic operators):
+	'+2'					=>	2,
+	'1-12'					=>	'-11',
+	'1 - 12'				=>	'-11',
+	'-12'					=>	'-12',
+	'+12'					=>	'12',
+	'0 + +12'				=>	'12',
+	'0 + -12'				=>	'-12',
+	'2 ++ 3'				=>	'5',
+	'2 +++ 3'				=>	'5',
+	'2 -+ 3'				=>	'-1',
+	'2 +- 3'				=>	'-1',
+	'2 -- 3'				=>	'5',
+	'2 +-+ 3'				=>	'-1',
+	'2 +--+ 3'				=>	'5',
+	'2 + int(+3.5)'				=>	'5',
+	'2 + int(+3.5)'				=>	'5',
+	'(4)'					=>	'4',
+	'(-4)'					=>	'-4',
+	'-(4 * 3)'				=>	'-12',
+	'(-4 * 3)'				=>	'-12',
+	'(-4 * -3)'				=>	'12',
+	'(4 * -3)'				=>	'-12',
+
 	'0 + (44, 66, 22 + 1)'			=>	'23',
 	'(44, 66, 22)'				=>	'44, 66, 22',
+
 	'1 > 2'					=>	'0',
 	'2 > 2'					=>	'0',
 	'3 > 2'					=>	'1',
@@ -166,6 +210,11 @@ my @Test = (
 	'3 > 4 ? 99 : 200'			=>	'200',
 	'3 > 4 ? 6 + 7 : 2 + 3'			=>	'5',
 	'3 > 2 ? 6 + 7 : 2 + 3'			=>	'13',
+
+	'1.234e2 * 1'				=>	'123.4',
+	'1.234e-2 * 1'				=>	'0.01234',
+	'1.234e2 * 10'				=>	'1234',
+	'1.234e2 + 12'				=>	'135.4',
 
 	'"abc" lt "def"'			=>	'1',
 	'"abc" lt "abc"'			=>	'0',
@@ -324,6 +373,12 @@ my @Test = (
 	'int(16 / 3) + 1'			=>	'6',
 	'round( 1.2 )'				=>	'1',
 	'round( 1.7 )'				=>	'2',
+	'abs(4)'				=>	'4',
+	'abs(-4)'				=>	'4',
+	'abs(4 * 3)'				=>	'12',
+	'abs(-4 * 3)'				=>	'12',
+	'abs(-4 * -3)'				=>	'12',
+	'abs(4 * -3)'				=>	'12',
 	'1 + int(16 / 3)'			=>	'6',
 	'1 + int(16 / 3) * 2'			=>	'11',
 
@@ -361,8 +416,6 @@ my @Test = (
 	'^ xxx'					=>	'SyntaxError',
 	'2 ? 3'					=>	'SyntaxError',
 	'2 +'					=>	'SyntaxError',
-	'2 ++ 3'				=>	'SyntaxError',
-	'+ 2'					=>	'SyntaxError',
 	'+'					=>	'SyntaxError',
 	'2 3'					=>	'SyntaxError',
 	'2 + ( 1 +'				=>	'SyntaxError',
@@ -379,98 +432,105 @@ my @Test = (
 	'foo(3)'				=>	'RunTimeError',
 );
 
+use Test::Simple;
+
+# Output # tests that we expect to do:
+my $NumTests = (scalar @Test) / 2;
+print "1..$NumTests\n";
+
 my $Tests = 0;
 for(my $inx = 0; $inx < $#Test; $inx += 2 ) {
 
 	my $in = $Test[$inx];
 	my $result = $Test[$inx + 1];
 
-	if($in eq 'TRACE') {
-		$verbose = $result;
-		next;
-	}
-
 	$Tests++;
 
 	$OriginalExpression = $in;
 	$RunError = $ExprError = 0;
 
-	print "\nParse: ''$in'' fails=$NumFails\n";
+	print "\nParse: ''$in'' FailsSoFar=$NumFails\n" if($verbose);
 	$Operation = 'parsing';
 	my $tree = $ArithEnv->Parse($in);
 
 	if($ExprError) {
 		if($result eq 'SyntaxError') {
-			print "Parse fail -- as expected\n";
+			print "ok $Tests - Parse fail -- as expected\n";
 		} else {
-			print "Parse fail -- unexpectedly\n";
+			print "not ok $Tests - Parse fail -- unexpectedly\n";
 			$NumFails++;
 		}
+		$ArithEnv->PrintTree($tree) if($errtree);
 		next;
 	}
 
 	unless(defined($tree)) {
-		print "Tree undefined for expression ''$in''\n";
+		print "not ok $Tests - Tree undefined for expression ''$in''\n";
 		$NumFails++;
 		next;
 	}
 
 	&printv("parse => $tree\n");
 
-	$ArithEnv->PrintTree($tree) if($verbose);
+	$ArithEnv->PrintTree($tree) if($verbose > 1);
 
 	$Operation = 'evaluating';
 	my @res = $ArithEnv->EvalTree($tree, 0);
 
 	if($#res == -1 and $result eq 'EmptyArray') {
 		if($RunError) {
-			printf "Failed unexpectedly\n";
+			printf "not ok $Tests - Failed unexpectedly\n";
 			$NumFails++;
+			$ArithEnv->PrintTree($tree) if($errtree);
 		}
-		printf "Result is empty array, as expected\n";
+		printf "ok $Tests - Result is empty array, as expected\n";
 		next;
 	}
 
 	if($#res == -1 or $RunError) {
 		my $rterp = $RunError ? "run time error reported" : "run time error not reported";
 		if($result eq 'RunTimeError') {
-			printf "Failed at run time - as expected, %s\n", $rterp;
+			printf "ok $Tests - Failed at run time - as expected, %s\n", $rterp;
 			next;
 		}
-		printf "Failed unexpectedly, %s\n", $rterp;
+		printf "not ok $Tests - Failed unexpectedly, %s\n", $rterp;
 		$NumFails++;
 		next;
 	}
 
 	&printv("expr ''$in'' ");
 	if($#res == 0) {
-		printf "res='$res[0]' %s\n", ($res[0] eq $result) ? 'OK' : "Should be '$result'  FAIL";
-		$NumFails++ unless($res[0] eq $result);
+		# I have written better code:
+		printf "%s $Tests - res='$res[0]'%s\n", (($res[0] eq $result) ? 'ok' : "not ok"), (($res[0] eq $result) ? '' : " Should be '$result'");
+		unless($res[0] eq $result) {
+			$NumFails++;
+			$ArithEnv->PrintTree($tree) if($errtree);
+		}
 	} else {
 		my @ref = reverse split /, /, $result;
-		my $ok = 'OK';
-		print "Array #=$#res vals=";
+		my $ok = 'ok';
+		my $res = "res=Array #=$#res vals=";
 		my $ev = 'Extra val ';
 		foreach my $x (@res) {
-			 print "'$x' ";
+			 $res .= "'$x' ";
 			 my $ref = pop @ref;
 			 unless(defined($ref)) {
-				print "$ev";
+				$res .= "$ev";
 				$ev = '';
-				$ok = 'FAIL';
+				$ok = 'not ok';
 				next;
 			 }
 			 next if($ref eq $x);
-			 print "!= '$ref', ";
-			 $ok = 'FAIL'
+			 $res .= "!= '$ref', ";
+			 $ok = 'not ok'
 		}
-		print " $ok \n";
+		printf "$ok $Tests - %s\n", $res;
 		$NumFails++ if($ok ne 'OK');
 	}
 }
 
 print "\n\n";
-print "$Tests tests run\n";
-print $NumFails == 0 ? "All tests OK\n" : "$NumFails tests failed\n";
+print "# $Tests tests run\n";
+print $NumFails == 0 ? "# All tests OK\n" : "# $NumFails tests failed\n";
 
 # end

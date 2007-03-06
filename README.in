@@ -26,7 +26,7 @@ Quick example:
 	my $ConfValue = $ArithEnv->EvalToScalar($tree2);
 
 
-For examples of use see the test program: TestExpr.pl
+For examples of use see the test program in the t/ directory.
 POD documentation is in the module.
 
 You install the module by running these commands:
@@ -48,6 +48,18 @@ be acknowledged.
 
 
 
+You may get a bit more debugging/information from the test scripts by
+the use of environment options, so:
+
+Trace:
+	TRACE=1 perl -Iblib/lib t/test.t
+The TRACE value can be 1 or 2.
+
+Print out the parse tree on error:
+	ERR_TREE=1 perl -Iblib/lib t/test.t
+
+
+
 
 
 COPYRIGHT
@@ -61,7 +73,7 @@ COPYRIGHT
         .
           .
 
-	SCCS: @(#)README.in 1.3 03/27/03 10:42:29
+	SCCS: @(#)README.in	1.4 03/05/07 13:16:10
 
 This module is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself. You must preserve this entire copyright

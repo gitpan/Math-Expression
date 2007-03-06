@@ -94,3 +94,21 @@ addw: Thu 27 Mar 2003 10:42
 MANIFEST: Add a few more files
 README.in: Add copyright release.
 TODO: Add copyright release.
+
+addw: Thu 08 Apr 2004 18:12
+Expression.pm: Implement monadic +-~!, exponent op '**', floats of form 123E21 and abs function.
+test.pl: Test implementation of monadic +-~!, exponent op '**', floats of form 123E21 and abs function.
+	Option to print the tree after an error.
+
+addw: Mon 05 Mar 2007 13:12
+test.t: Move from test.pl to t/test.t
+	Change to work with the current testing framework.
+MANIFEST: Change where the test script lives
+README.in: Talk about new location for test script
+
+addw: Mon 05 Mar 2007 14:38
+test.t: Be parsimonious on the use of POSIX, comment out a comment!
+Credits:	Initial Create.
+Credits: Add Alexandr Ciornii as a tester
+Makefile.PL: Add LICENSE
+Expression.pm: Be parsimonious on the use of POSIX.
