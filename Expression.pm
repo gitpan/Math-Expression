@@ -8,7 +8,7 @@
 #        .
 #          .
 #
-#	SCCS: @(#)Expression.pm	1.17 03/06/07 08:34:34
+#	SCCS: @(#)Expression.pm	1.18 01/03/08 16:23:53
 #
 # This module is free software; you can redistribute it and/or modify
 # it under the same terms as Perl itself. You must preserve this entire copyright
@@ -49,7 +49,7 @@ use vars qw/
 	$Version
 );
 
-our $VERSION = "1.17";
+our $VERSION = "1.18";
 
 # Operator precedence, higher means evaluate first.
 # If precedence values are the same associate to the left.
@@ -183,7 +183,7 @@ sub ParseString {
 		my $VirtKet = $expr eq '';
 
 		# Match integer/float constant:
-		if($expr =~ s/^(\d+\.?\d*([ed][-+]?\d+)?)//i) {
+		if($expr =~ s/^(((\d+(\.\d*)?)|(\.\d+))([ed][-+]?\d+)?)//i) {
 			$nodep->{oper} = 'const';
 			$nodep->{val} = $1;
 			$operlast = 0;
@@ -957,7 +957,7 @@ Alain D D Williams <addw@phcomp.co.uk>
 
 =head2 Copyright and Version
 
-Version "1.17", this is available as: $Math::Expression::Version.
+Version "1.18", this is available as: $Math::Expression::Version.
 
 Copyright (c) 2003 Parliament Hill Computers Ltd/Alain D D Williams. All rights reserved.
 This program is free software; you can redistribute it and/or modify it

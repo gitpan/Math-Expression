@@ -8,13 +8,14 @@
 #        .
 #          .
 #
-#	SCCS: @(#)test.t	1.13 03/05/07 14:38:58
+#	SCCS: @(#)test.t	1.14 01/03/08 16:23:23
 #
 # Test program for the module Math::Expression.
 # This also serves as a demonstration program on how to use the module.
 #
 # May want to run as:
-#	PERL5LIB=.. -Iblib/lib t/test.t
+#	PERL5LIB=blib/lib t/test.t
+#	PERL5LIB=../blib/lib test.t
 
 # You can also set environment variables:
 #  TRACE	1	print out expression and result
@@ -153,6 +154,15 @@ my @Test = (
 	'2 ** (3 + 1)'				=>	'16',
 	'2 ** 3 + 1'				=>	'9',
 	'2 ** (0-3)'				=>	'0.125',
+
+	'1.23 + 0'				=>	'1.23',
+	'.5 + 0'				=>	'0.5',
+	'1e2 + 0'				=>	'100',
+	'1.2e2 + 0'				=>	'120',
+	'1.2e+2 + 0'				=>	'120',
+	'1.2e-2 + 0'				=>	'0.012',
+	'(1+.12)'				=>	'1.12',
+	'(1*.12)'				=>	'0.12',
 
 	# You might expect the following to produce syntax errors, but they aren't (monadic operators):
 	'+2'					=>	2,

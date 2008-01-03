@@ -115,3 +115,12 @@ Expression.pm: Be parsimonious on the use of POSIX.
 
 addw: Tue 06 Mar 2007 08:34
 Expression.pm: Just to increment version #
+
+addw: Thu 03 Jan 2008 16:23
+test.t: Add some extra tests for parsing numbers. Fix up how-to-run-me examples
+
+addw: Thu 03 Jan 2008 16:23
+Expression.pm: Fix RE that recognises floating point numbers
+
+addw: Thu 03 Jan 2008 16:30
+Credits: Add someone who found a prob with number parsing
