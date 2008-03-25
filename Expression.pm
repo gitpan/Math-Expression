@@ -8,7 +8,7 @@
 #        .
 #          .
 #
-#	SCCS: @(#)Expression.pm	1.18 01/03/08 16:23:53
+#	SCCS: @(#)Expression.pm	1.21 03/04/08 09:02:54
 #
 # This module is free software; you can redistribute it and/or modify
 # it under the same terms as Perl itself. You must preserve this entire copyright
@@ -49,7 +49,7 @@ use vars qw/
 	$Version
 );
 
-our $VERSION = "1.18";
+our $VERSION = "1.21";
 
 # Operator precedence, higher means evaluate first.
 # If precedence values are the same associate to the left.
@@ -536,8 +536,9 @@ sub EvalTree {
 			return;
 		}
 		$left = 0;
+	} else {
+		$left = "$1$2$3";
 	}
-	$left = "$1$2$3";
 
 	unless($right =~ /^([-+]?)0*([\d.]+)([ef][-+]?\d*|)/i) {
 		unless($self->{AutoInit} and $right eq '') {
@@ -545,8 +546,9 @@ sub EvalTree {
 			return;
 		}
 		$right = 0;
+	} else {
+		$right = "$1$2$3";
 	}
-	$right = "$1$2$3";
 
 	return $left *  $right if($oper eq '*');
 	return $left /  $right if($oper eq '/');
@@ -569,11 +571,17 @@ sub EvalTree {
 sub FuncValue {
 	my ($self, $fname, @arglist) = @_;
 
+	# If there is a user supplied extra function evaluator, try that first:
+	my $res;
+	return $res if(defined($self->{ExtraFuncEval}) && defined($res = $self->{ExtraFuncEval}(@_)));
+
 	my $last = $arglist[$#arglist];
 
 	return int($last)					if($fname eq 'int');
 	return abs($last)					if($fname eq 'abs');
-	return int($last + 0.5)					if($fname eq 'round');
+
+	# Round in a +ve direction unless RoundNegatives when round away from zero:
+	return int($last + 0.5 * ($self->{RoundNegatives} ? $last <=> 0 : 1))	if($fname eq 'round');
 
 	return split $arglist[0], $arglist[$#arglist]		if($fname eq 'split');
 	return join  $arglist[0], @arglist[1 ... $#arglist]	if($fname eq 'join');
@@ -607,20 +615,25 @@ sub new {
 
 	# What we store about this evaluation environment, default values:
 	my %ExprVars = (
-		'PrintErrFunc'	=>	\&PrintError,		# Printf errors
-		'VarHash'	=>	{(			# Variable hash
+		PrintErrFunc	=>	\&PrintError,		# Printf errors
+		VarHash		=>	{(			# Variable hash
 					EmptyArray	=>	[()],
 					EmptyList	=>	[()],
 			)},
-		'VarGetFun'	=>	\&VarGetFun,		# Get a variable function
-		'VarIsDefFun'	=>	\&VarIsDefFun,		# Is a variable defined function
-		'VarSetFun'	=>	\&VarSetFun,		# Set an array variable function
-		'VarSetScalar'	=>	\&VarSetScalar,		# Set a scalar variable function
-		'FuncEval'	=>	\&FuncValue,		# Evaluate function
-		'AutoInit'	=>	0,			# If true auto initialise variables
+		VarGetFun	=>	\&VarGetFun,		# Get a variable function
+		VarIsDefFun	=>	\&VarIsDefFun,		# Is a variable defined function
+		VarSetFun	=>	\&VarSetFun,		# Set an array variable function
+		VarSetScalar	=>	\&VarSetScalar,		# Set a scalar variable function
+		FuncEval	=>	\&FuncValue,		# Evaluate function
+		AutoInit	=>	0,			# If true auto initialise variables
+		ExtraFuncEval	=>	undef,			# User supplied extra function evaluator function
+		RoundNegatives	=>	0,			# Round behaves differently with -ve numbers
 	);
 
-	return bless \%ExprVars => $class;
+	my $self = bless \%ExprVars => $class;
+	$self->SetOpt(@_);	# Process new options
+
+	return $self;
 }
 
 # Set an option in the %template.
@@ -628,8 +641,8 @@ sub SetOpt {
 	my $self = shift @_;
 
 	while($#_ > 0) {
-		&Error($self, "Unknown option '$_[0]'") unless(defined($self->{$_[0]}));
-		&Error($self, "No value to option '$_[0]'") unless(defined($_[1]));
+		$self->{PrintErrFunc}("Unknown option '$_[0]'") unless(exists($self->{$_[0]}));
+		$self->{PrintErrFunc}("No value to option '$_[0]'") unless(defined($_[1]));
 		$self->{$_[0]} = $_[1];
 		shift;shift;
 	}
@@ -693,6 +706,8 @@ functions.
 The items following may be set.
 In many cases you will want to set a function to extend what the standard one does.
 
+These options may also be given to the C<new> function.
+
 =over 4
 
 =item PrintErrFunc
@@ -741,6 +756,21 @@ The arguments are: 0 - the value returned by C<new>; 1 - the name of the functio
 to be evaluated; 2... - an array of function arguments.
 This should return the value of the function: scalar or array.
 
+The purpose is to permit different functions than those provided (eg C<abs()>) to be made available.
+This option B<replaces> the in built function evaluator C<FuncValue> which may be used as a model for
+your own evaluator.
+
+=item ExtraFuncEval
+
+If defined this will be called when evaluating functions.
+If a defined value is returned that value is used in the expression, it should be numeric or string.
+This is called before the standard functions are tested and thus can redefine the built in functions.
+The arguments are as C<FuncEval>.
+
+=item RoundNegatives
+
+See the description of the C<round> function.
+
 =item AutoInit
 
 If true automatically initialise undefined values, to the empty string or '0' depending on use.
@@ -753,12 +783,14 @@ Example:
 	EmptyList       =>      [()],
   );
 
-  $ArithEnv->SetOpt('VarHash' => \%Vars,
-	'VarGetFun' => \&VarValue,
-	'VarIsDefFun' => \&VarIsDef,
-	'PrintErrFunc' => \&MyPrintError,
-	'AutoInit' => 1,
+  $ArithEnv->SetOpt(VarHash => \%Vars,
+	VarGetFun => \&VarValue,
+	VarIsDefFun => \&VarIsDef,
+	PrintErrFunc => \&MyPrintError,
+	AutoInit => 1,
 	);
+
+   my $ArithEnv2 = new Math::Expression(RoundNegatives => 1);
 
 =back
 
@@ -831,6 +863,8 @@ Returns the absolute value of an expression.
 =item round
 
 Adds 0.5 to input and returns the integer part.
+If the option C<RoundNegatives> is set round() is sign sensitive,
+so for negative input subtracts 0.5 from input and returns the integer part.
 
 =item split
 
@@ -951,13 +985,28 @@ is assigned a value:
 
 	a > b ? aa : bb := 124
 
+=head2 Miscellaneous and examples
+
+There is no C<;> so each strings Parsed must be one expression.
+	my $tree1 = $ArithEnv->Parse('a := 10');
+	my $tree2 = $ArithEnv->Parse('b := 3');
+	my $tree3 = $ArithEnv->Parse('a + b');
+
+	$ArithEnv->EvalToScalar($tree1);
+	$ArithEnv->EvalToScalar($tree2);
+	print "Result: ", $ArithEnv->EvalToScalar($tree2), "\n";
+
+prints:
+	Result: 13
+
+
 =head1 AUTHOR
 
 Alain D D Williams <addw@phcomp.co.uk>
 
 =head2 Copyright and Version
 
-Version "1.18", this is available as: $Math::Expression::Version.
+Version "1.21", this is available as: $Math::Expression::Version.
 
 Copyright (c) 2003 Parliament Hill Computers Ltd/Alain D D Williams. All rights reserved.
 This program is free software; you can redistribute it and/or modify it

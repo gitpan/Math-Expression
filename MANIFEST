@@ -6,6 +6,9 @@ Makefile.PL
 MANIFEST
 README
 README.in
+Examples/UseOfOptions.pl
+Examples/BasicUse.pl
 t/test.t
+t/options.t
 TODO
 META.yml                                 Module meta-data (added by MakeMaker)

@@ -8,7 +8,7 @@
 #        .
 #          .
 #
-#	SCCS: @(#)test.t	1.14 01/03/08 16:23:23
+#	SCCS: @(#)test.t	1.18 03/04/08 09:01:14
 #
 # Test program for the module Math::Expression.
 # This also serves as a demonstration program on how to use the module.
@@ -45,7 +45,9 @@ use POSIX qw(strftime mktime);
 
 
 
-# Values of variables in here
+# Values of variables in here.
+# This is made the hash that stores variables by the use of SetOpt() below.
+# These variables may be used in expressions, see 'Test variables defined elsewhere' below.
 my %Vars = (
 	'var'		=>	[42],
 	'foo'		=>	[6],
@@ -56,6 +58,7 @@ my %Vars = (
 # Return the value of a variable - return an array
 # 0	Magic value to Math::Expression
 # 1	Variable name
+# See SetOpt() below.
 sub VarValue {
 	my ($self, $name) = @_;
 
@@ -68,6 +71,7 @@ sub VarValue {
 # Return 1 if a variable is defined - ie has been assigned to
 # 0	Magic value to Math::Expression
 # 1	Variable name
+# See SetOpt() below.
 sub VarIsDef {
 	my ($self, $name) = @_;
 
@@ -381,8 +385,11 @@ my @Test = (
 	'printf(">>%3.3d<<", 12)'		=>	'>>012<<',
 	'int(0 - 16 / 3)'			=>	'-5',
 	'int(16 / 3) + 1'			=>	'6',
+
 	'round( 1.2 )'				=>	'1',
-	'round( 1.7 )'				=>	'2',
+	'round( - 1.2 )'			=>	'0',
+	'round( 0 )'				=>	'0',
+
 	'abs(4)'				=>	'4',
 	'abs(-4)'				=>	'4',
 	'abs(4 * 3)'				=>	'12',
